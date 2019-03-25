@@ -1,7 +1,6 @@
 package dd
 
 import (
-	"log"
 	"strings"
 
 	"github.com/gocolly/colly"
@@ -24,7 +23,6 @@ func WSJ(ticker string) ([]string, error) {
 	})
 
 	c.Visit(wsjSource + ticker)
-	log.Println(content[0])
 	return content, err
 }
 

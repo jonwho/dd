@@ -21,7 +21,7 @@ github.com/gobwas/glob/util/strings
 github.com/gocolly/colly
 github.com/gocolly/colly/debug
 github.com/gocolly/colly/storage
-# github.com/golang/protobuf v1.2.0
+# github.com/golang/protobuf v1.3.1
 github.com/golang/protobuf/proto
 # github.com/kennygrant/sanitize v1.2.4
 github.com/kennygrant/sanitize
@@ -29,7 +29,7 @@ github.com/kennygrant/sanitize
 github.com/saintfish/chardet
 # github.com/temoto/robotstxt v0.0.0-20180810133444-97ee4a9ee6ea
 github.com/temoto/robotstxt
-# golang.org/x/net v0.0.0-20190324223953-e3b2ff56ed87
+# golang.org/x/net v0.0.0-20190328230028-74de082e2cca
 golang.org/x/net/html
 golang.org/x/net/html/charset
 golang.org/x/net/html/atom

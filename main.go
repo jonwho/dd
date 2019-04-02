@@ -21,8 +21,8 @@ var (
 	links           *list.List
 	visitCount      int
 	visited         map[string]bool
-	visitWhitelist  = regexp.MustCompile(`^https://www.(wsj.com|barrons.com|marketwatch.com)`)
-	scrapeWhitelist = regexp.MustCompile(`^https://www.(wsj.com\/articles|barrons.com\/articles|marketwatch.com\/story)`)
+	visitWhitelist  = regexp.MustCompile(`(wsj.com|barrons.com|marketwatch.com)`)
+	scrapeWhitelist = regexp.MustCompile(`(wsj.com\/articles|barrons.com\/articles|marketwatch.com\/story)`)
 )
 
 func init() {

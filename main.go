@@ -4,7 +4,7 @@ import (
 	"container/list"
 	"flag"
 	"fmt"
-	// "io/ioutil"
+	"io/ioutil"
 	"log"
 	"regexp"
 
@@ -21,13 +21,13 @@ var (
 	links           *list.List
 	visitCount      int
 	visited         map[string]bool
-	visitWhitelist  = regexp.MustCompile(`(wsj.com|barrons.com|marketwatch.com)`)
-	scrapeWhitelist = regexp.MustCompile(`(wsj.com/articles|barrons.com/articles|marketwatch.com/story)`)
+	visitWhitelist  = regexp.MustCompile(`^https://www.(wsj.com|barrons.com|marketwatch.com)`)
+	scrapeWhitelist = regexp.MustCompile(`^https://www.(wsj.com\/articles|barrons.com\/articles|marketwatch.com\/story)`)
 )
 
 func init() {
 	log.Println("init() starting...")
-	flag.StringVar(&ticker, "t", "spy", "Ticker")
+	flag.StringVar(&ticker, "t", "aapl", "Ticker")
 	flag.IntVar(&nLinks, "n", 10, "Number of links to visit")
 	flag.Parse()
 
@@ -45,7 +45,6 @@ func main() {
 	links.PushBack(url)
 
 	for link := links.Front(); link != nil && visitCount < nLinks; link = link.Next() {
-		visitCount++
 		moreLinks := visit(link)
 		for _, moreLink := range moreLinks {
 			log.Println("Adding link", moreLink)
@@ -59,14 +58,25 @@ func main() {
 func visit(link *list.Element) []string {
 	moreLinks := []string{}
 	log.Println("Visiting link", link.Value)
-	c := colly.NewCollector()
+	c := colly.NewCollector(
+		colly.URLFilters(
+			visitWhitelist,
+			scrapeWhitelist,
+		),
+	)
 
 	c.OnHTML("body", func(e *colly.HTMLElement) {
-		log.Println("HTML DOC HERE")
-		log.Println(e.Text)
+		url := e.Request.URL.String()
+		uri := fmt.Sprintf("tmp/html_%d", visitCount)
+		if scrapeWhitelist.MatchString(url) {
+			visitCount++
+			content := append([]byte(url+"\n\n\n"), []byte(e.Text)...)
+			log.Println("Writing to file... ", uri)
+			ioutil.WriteFile(uri, content, 0644)
+		}
 	})
 
-	c.OnHTML("body a", func(e *colly.HTMLElement) {
+	c.OnHTML("body a[href]", func(e *colly.HTMLElement) {
 		href := e.Attr("href")
 		if !visitWhitelist.MatchString(href) || visited[href] {
 			log.Println("WONT VISIT OR SEEN BEFORE. SKIPPING ---", href)

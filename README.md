@@ -8,7 +8,7 @@ Due diligence or dumb decisions?
 ## TRY IT OUT
 ```bash
 $ cd ~ && git clone https://github.com/jonwho/dd.git
-$ cd dd
+$ cd dd && mkdir tmp
 $ ./scripts/build.sh
 $ ./scripts/run.sh
 $ go run .

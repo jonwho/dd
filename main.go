@@ -7,52 +7,64 @@ import (
 	"io/ioutil"
 	"log"
 	"regexp"
+	"sync"
+	"sync/atomic"
 
 	"github.com/gocolly/colly"
+	"github.com/google/uuid"
 )
 
 const (
-	wsjSource = "https://quotes.wsj.com/"
+	wsjSource        = "https://quotes.wsj.com/"
+	wsjAAPLSource    = "https://quotes.wsj.com/aapl"
+	wsjMSFTSource    = "https://quotes.wsj.com/msft"
+	wsjTSLASource    = "https://quotes.wsj.com/tsla"
+	wsjFBSource      = "https://quotes.wsj.com/fb"
+	writePermissions = 0644
 )
 
 var (
 	ticker          string
-	nLinks          int
-	links           *list.List
-	visitCount      int
-	visited         map[string]bool
+	nLinks          uint64
+	visitCount      uint64
+	visited         sync.Map
 	visitWhitelist  = regexp.MustCompile(`(wsj.com|barrons.com|marketwatch.com)`)
 	scrapeWhitelist = regexp.MustCompile(`(wsj.com\/articles|barrons.com\/articles|marketwatch.com\/story)`)
+	wg              sync.WaitGroup
 )
 
 func init() {
 	log.Println("init() starting...")
 	flag.StringVar(&ticker, "t", "aapl", "Ticker")
-	flag.IntVar(&nLinks, "n", 10, "Number of links to visit")
+	flag.Uint64Var(&nLinks, "n", 10, "Number of links to visit")
 	flag.Parse()
-
-	visited = map[string]bool{}
 }
 
 func main() {
-	log.Println("Running with ticker", ticker)
-	log.Println("Running with link limit", nLinks)
-	url := fmt.Sprintf("%s%s", wsjSource, ticker)
-	log.Println("First URL", url)
+	wg.Add(4)
 
-	// new doubly-linked list; use as a queue
+	go crawl(wsjAAPLSource)
+	go crawl(wsjMSFTSource)
+	go crawl(wsjTSLASource)
+	go crawl(wsjFBSource)
+
+	wg.Wait()
+}
+
+func crawl(url string) {
+	defer wg.Done()
+
 	links := list.New()
 	links.PushBack(url)
 
-	for link := links.Front(); link != nil && visitCount < nLinks; link = link.Next() {
+	for link := links.Front(); link != nil && atomic.LoadUint64(&visitCount) < nLinks; link = link.Next() {
 		moreLinks := visit(link)
 		for _, moreLink := range moreLinks {
 			log.Println("Adding link", moreLink)
 			links.PushBack(moreLink)
 		}
-		visited[link.Value.(string)] = true
+		visited.Store(link.Value.(string), true)
 	}
-	return
 }
 
 func visit(link *list.Element) []string {
@@ -67,24 +79,28 @@ func visit(link *list.Element) []string {
 
 	c.OnHTML("body", func(e *colly.HTMLElement) {
 		url := e.Request.URL.String()
-		uri := fmt.Sprintf("tmp/html_%d", visitCount)
+		uri := fmt.Sprintf("tmp/html_%s", uuid.New().String())
 		if scrapeWhitelist.MatchString(url) {
-			visitCount++
+			atomic.AddUint64(&visitCount, 1)
 			content := append([]byte(url+"\n\n\n"), []byte(e.Text)...)
 			log.Println("Writing to file... ", uri)
-			ioutil.WriteFile(uri, content, 0644)
+			err := ioutil.WriteFile(uri, content, writePermissions)
+			if err != nil {
+				log.Fatalln(err)
+			}
 		}
 	})
 
 	c.OnHTML("body a[href]", func(e *colly.HTMLElement) {
 		href := e.Attr("href")
-		if !visitWhitelist.MatchString(href) || visited[href] {
+		if _, ok := visited.Load(href); ok || !visitWhitelist.MatchString(href) {
+			visited.Store(href, true)
 			log.Println("WONT VISIT OR SEEN BEFORE. SKIPPING ---", href)
 			return
 		}
 
 		moreLinks = append(moreLinks, href)
-		visited[href] = true
+		visited.Store(href, true)
 	})
 
 	c.Visit(link.Value.(string))
